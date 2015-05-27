@@ -85,11 +85,14 @@ extlibs/cereal
 extlibs/android/gradle/gradle-2.2.1
 extlibs/android/ndk/android-ndk-r10d
 extlibs/android/sdk/android-sdk_r24.2
+extlibs/android/sdk/android-sdk-linux
 extlibs/boost/boost_1_58_0
 *.tgz
 *.zip
 extlibs/arduino/arduino-1.5.8
 build_common/arduino/extlibs/arduino/arduino-1.5.8
+dep
+extlibs/android/ndk/*.bin
 
 # Ignore editor (e.g. Emacs) backup and autosave files
 *~
@@ -97,3 +100,15 @@ build_common/arduino/extlibs/arduino/arduino-1.5.8
 
 # Ignore byte-compiled Python scripts
 *.pyc
+
+# Ignore various generated/built-files from Android
+extlibs/tinydtls/dtls-client
+extlibs/tinydtls/dtls-server
+extlibs/tinydtls/libtinydtls.a
+resource/csdk/connectivity/build
+resource/csdk/connectivity/samples/android/sample_service/.*
+resource/csdk/connectivity/samples/android/sample_service/bin
+resource/csdk/connectivity/samples/android/sample_service/gen
+resource/csdk/connectivity/samples/android/sample_service/libs
+resource/csdk/connectivity/samples/android/sample_service/obj
+

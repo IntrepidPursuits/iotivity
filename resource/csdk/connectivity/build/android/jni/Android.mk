@@ -1,3 +1,5 @@
+APP_PATH2 := $(call my-dir)
+
 $(info TC_PREFIX=$(TOOLCHAIN_PREFIX))
 $(info CFLAGS=$(TARGET_CFLAGS))
 $(info CXXFLAGS=$(TARGET_CXXFLAGS) $(TARGET_NO_EXECUTE_CFLAGS))
@@ -7,13 +9,12 @@ $(info LDFLAGS=$(TARGET_LDFLAGS) $(TARGET_NO_EXECUTE_LDFLAGS) $(TARGET_NO_UNDEFI
 $(info TC_VER=$(TOOLCHAIN_VERSION))
 $(info PLATFORM=$(APP_PLATFORM))
 
-
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #define build type
 BUILD = debug
 
 PROJECT_ROOT_PATH                       ?= ../..
-EXT_LIB_PATH                            = ../../../../../../extlibs
+EXT_LIB_PATH                            = $(APP_PATH2)/../../../../../../extlibs
 PROJECT_API_PATH                        = $(PROJECT_ROOT_PATH)/api
 PROJECT_INC_PATH                        = $(PROJECT_ROOT_PATH)/inc
 PROJECT_SRC_PATH                        = $(PROJECT_ROOT_PATH)/src
@@ -27,9 +28,9 @@ DTLS_LIB                                = $(EXT_LIB_PATH)/tinydtls
 
 #Modify below values to enable/disable the Adapter
 #Suffix "NO_" to disable given adapter
-EDR             = EDR_ADAPTER
+EDR             = NO_EDR_ADAPTER
 IP              = IP_ADAPTER
-LE              = LE_ADAPTER
+LE              = NO_LE_ADAPTER
 
 #Add Pre processor definitions
 DEFINE_FLAG =  -DWITH_POSIX -D__ANDROID__
@@ -95,7 +96,7 @@ LOCAL_SRC_FILES =       oic_logger.c \
                         oic_console_logger.c logger.c oic_malloc.c \
                         uarraylist.c uqueue.c oic_string.c \
                         cathreadpool_pthreads.c camutex_pthreads.c
-
+$(info CACommon_$(LOCAL_CFLAGS))
 include $(BUILD_STATIC_LIBRARY)
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -110,7 +111,7 @@ LOCAL_EXPORT_C_INCLUDES = $(PROJECT_LIB_PATH)/libcoap-4.1.1
 LOCAL_CFLAGS = -DWITH_POSIX
 LOCAL_SRC_FILES = pdu.c net.c debug.c encode.c uri.c coap_list.c resource.c hashkey.c \
                                         str.c option.c async.c subscribe.c block.c
-
+$(info CACoap_$(LOCAL_CFLAGS))
 include $(BUILD_STATIC_LIBRARY)
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -157,6 +158,6 @@ LOCAL_SRC_FILES = \
                 $(EDR_ADAPTER_PATH)/caedrnwmonitor.c \
                 $(IP_ADAPTER_PATH)/caipadapter.c $(IP_ADAPTER_PATH)/caipserver.c \
                 $(IP_ADAPTER_PATH)/caipclient.c $(IP_ADAPTER_PATH)/android/caipnwmonitor.c \
-
+$(info CA_$(LOCAL_CFLAGS))
 include $(BUILD_STATIC_LIBRARY)
 

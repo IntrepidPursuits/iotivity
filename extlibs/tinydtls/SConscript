@@ -47,6 +47,7 @@ if target_os not in ['arduino', 'windows', 'winrt']:
 ######################################################################
 tinydtls_src = [
                 'dtls.c',
+                'debug.c',
                 'crypto.c',
                 'ccm.c',
                 'hmac.c',

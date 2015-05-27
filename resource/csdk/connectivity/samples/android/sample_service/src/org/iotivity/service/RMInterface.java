@@ -1,11 +1,14 @@
 package org.iotivity.service;
 
 import android.content.Context;
+import android.os.Build;
 
 public class RMInterface {
 
     static {
         // Load RI JNI interface
+    	int x = Build.VERSION.SDK_INT;
+    	int y = Build.VERSION_CODES.BASE;
         System.loadLibrary("RMInterface");
     }
 

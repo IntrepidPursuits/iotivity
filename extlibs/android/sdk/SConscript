@@ -21,7 +21,7 @@ if target_os == 'android':
 	if not android_home:
 		print 'Creating ANDROID_HOME for Android SDK'
 
-		androidlib_dir      = src_dir + '/extlibs/android/sdk/android-sdk_r24.2'
+		androidlib_dir      = src_dir + '/extlibs/android/sdk/android-sdk-linux'
 
 		if not os.path.exists(androidlib_dir):
 			from sys import platform as _platform
