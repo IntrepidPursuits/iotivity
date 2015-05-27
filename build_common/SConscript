@@ -108,8 +108,11 @@ tc_set_msg = '''
 '''
 if env.get('VERBOSE') == False:
 	env['CCCOMSTR'] = "Compiling $TARGET"
+	env['SHCCCOMSTR'] = "Compiling $TARGET"
 	env['CXXCOMSTR'] = "Compiling $TARGET"
+	env['SHCXXCOMSTR'] = "Compiling $TARGET"
 	env['LINKCOMSTR'] = "Linking $TARGET"
+	env['SHLINKCOMSTR'] = "Linking $TARGET"
 	env['ARCOMSTR'] = "Archiving $TARGET"
 	env['RANLIBCOMSTR'] = "Indexing Archive $TARGET"
 
@@ -261,16 +264,14 @@ if target_os == "yocto":
     env.AppendUnique(CFLAGS = ['-std=gnu99'])
     env.AppendUnique(CCFLAGS = ['-Wall', '-fPIC'])
     env.AppendUnique(LINKFLAGS = ['-ldl', '-lpthread'])
+    env.AppendUnique(LIBS = ['uuid'])
     Export('env')
 else:
     '''
     If target_os is not Yocto, continue with the regular build process
     '''
     # Load config of target os
-    if target_os in ['linux', 'tizen']:
-		env.SConscript('linux/SConscript')
-    else:
-		env.SConscript(target_os + '/SConscript')
+    env.SConscript(target_os + '/SConscript')
 
 # Delete the temp files of configuration
 if env.GetOption('clean'):

@@ -97,6 +97,7 @@ extlibs/android/ndk/*.bin
 # Ignore editor (e.g. Emacs) backup and autosave files
 *~
 *#*#
+*.orig
 
 # Ignore byte-compiled Python scripts
 *.pyc
