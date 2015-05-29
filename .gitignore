@@ -113,3 +113,13 @@ resource/csdk/connectivity/samples/android/sample_service/gen
 resource/csdk/connectivity/samples/android/sample_service/libs
 resource/csdk/connectivity/samples/android/sample_service/obj
 
+.gradle
+/local.properties
+/.idea/workspace.xml
+/.idea/libraries
+.DS_Store
+/build
+/captures
+
+.idea
+*.iml
