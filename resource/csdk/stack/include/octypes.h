@@ -24,6 +24,8 @@
 #include "ocstackconfig.h"
 
 #ifdef __cplusplus
+#include <string.h>
+
 extern "C" {
 #endif // __cplusplus
 #define WITH_PRESENCE
@@ -53,6 +55,10 @@ extern "C" {
 #define OC_MAX_PRESENCE_TTL_SECONDS     (60 * 60 * 24) // 60 sec/min * 60 min/hr * 24 hr/day
 #define OC_PRESENCE_URI                      "/oic/ad"
 #endif
+
+///Separtor for multiple query string
+#define OC_QUERY_SEPARATOR                "&;"
+
 /**
  * Attributes used to form a proper OIC conforming JSON message.
  */
@@ -65,7 +71,9 @@ extern "C" {
 #define OC_RSRVD_RESOURCE_TYPE          "rt"
 #define OC_RSRVD_RESOURCE_TYPE_PRESENCE "oic.wk.ad"
 #define OC_RSRVD_INTERFACE              "if"
-
+#define OC_RSRVD_TTL                    "ttl"
+#define OC_RSRVD_NONCE                  "non"
+#define OC_RSRVD_TRIGGER                "trg"
 
 #define OC_RSRVD_INTERFACE_DEFAULT      "oic.if.baseline"
 #define OC_RSRVD_INTERFACE_LL           "oic.if.ll"
@@ -80,7 +88,13 @@ extern "C" {
 #define OC_RSRVD_HOSTING_PORT           "port"
 #define OC_RSRVD_SERVER_INSTANCE_ID     "sid"
 
-  //**** Platform ****
+//**** Presence "Announcement Triggers" ****
+#define OC_RSRVD_TRIGGER_CREATE         "create"
+#define OC_RSRVD_TRIGGER_CHANGE         "change"
+#define OC_RSRVD_TRIGGER_DELETE         "delete"
+//*******************
+
+//**** Platform ****
 #define OC_RSRVD_PLATFORM_ID            "pi"
 #define OC_RSRVD_MFG_NAME               "mnmn"
 #define OC_RSRVD_MFG_URL                "mnml"
@@ -94,7 +108,7 @@ extern "C" {
 #define OC_RSRVD_SYSTEM_TIME             "st"
 //*******************
 
-  //**** Device ****
+//**** Device ****
 #define OC_RSRVD_DEVICE_ID              "di"
 #define OC_RSRVD_DEVICE_NAME            "n"
 #define OC_RSRVD_SPEC_VERSION           "lcv"
@@ -342,6 +356,25 @@ typedef struct OCHeaderOption
     uint16_t optionLength;
     // pointer to its data
     uint8_t optionData[MAX_HEADER_OPTION_DATA_LENGTH];
+
+#ifdef __cplusplus
+    OCHeaderOption() = default;
+    OCHeaderOption(OCTransportProtocolID pid,
+                   uint16_t optId,
+                   uint16_t optlen,
+                   const uint8_t* optData)
+        : protocolID(pid),
+          optionID(optId),
+          optionLength(optlen)
+    {
+
+        // parameter includes the null terminator.
+        optionLength = optionLength < MAX_HEADER_OPTION_DATA_LENGTH ?
+                        optionLength : MAX_HEADER_OPTION_DATA_LENGTH;
+        memcpy(optionData, optData, optionLength);
+        optionData[optionLength - 1] = '\0';
+    }
+#endif
 } OCHeaderOption;
 
 /**
@@ -476,13 +509,18 @@ typedef void (* OCClientContextDeleter)(void *context);
 /**
  * This info is passed from application to OC Stack when initiating a request to Server.
  */
-typedef struct
+typedef struct OCCallbackData
 {
     void *context;
     /// The pointer to a function the stack will call to handle the requests
     OCClientResponseHandler cb;
     /// A pointer to a function to delete the context when this callback is removed
     OCClientContextDeleter cd;
+#ifdef __cplusplus
+    OCCallbackData() = default;
+    OCCallbackData(void* ctx, OCClientResponseHandler callback, OCClientContextDeleter deleter)
+        :context(ctx), cb(callback), cd(deleter){}
+#endif
 } OCCallbackData;
 
 /**
