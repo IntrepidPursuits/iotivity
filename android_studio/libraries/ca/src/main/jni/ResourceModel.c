@@ -7,6 +7,7 @@
 
 #include "cainterface.h"
 #include "cacommon.h"
+#include "oic_malloc.h"
 
 #include "org_iotivity_ca_service_RMInterface.h"
 
@@ -37,6 +38,7 @@ void response_handler(const CARemoteEndpoint_t* object, const CAResponseInfo_t* 
 void get_resource_uri(const char *URI, char *resourceURI, uint32_t length);
 uint32_t get_secure_information(CAPayload_t payLoad);
 CAResult_t get_network_type(uint32_t selectedNetwork);
+CAResult_t get_network_type2(uint32_t selectedNetwork, CATransportType_t *networkType);
 void callback(char *subject, char *receivedData);
 CAResult_t get_remote_address(CATransportType_t transportType, CAAddress_t addressInfo);
 
@@ -389,6 +391,162 @@ Java_org_iotivity_ca_service_RMInterface_RMSendRequest(JNIEnv *env, jobject obj,
 
     free(requestData.payload);
 }
+
+// ------------- Begin Intrepid ----------------
+
+CAResult_t get_message_method(uint32_t methodNumber, CAMethod_t* method)
+{
+    uint32_t number = methodNumber;
+    if (number == CA_GET)
+    {
+        *method = CA_GET;
+        return CA_STATUS_OK;
+    }
+    if (number == CA_POST)
+    {
+        *method = CA_POST;
+        return CA_STATUS_OK;
+    }
+    if (number == CA_PUT)
+    {
+        *method = CA_PUT;
+        return CA_STATUS_OK;
+    }
+    if (number == CA_DELETE)
+    {
+        *method = CA_DELETE;
+        return CA_STATUS_OK;
+    }
+
+    return CA_NOT_SUPPORTED;
+}
+
+JNIEXPORT void JNICALL
+Java_org_iotivity_ca_service_RMInterface_sendRequest(JNIEnv *env, jobject obj, jstring uri,
+                                                    jstring payload, jint selectedNetwork,
+                                                    jint method, jint msgType)
+{
+    LOGI("selectedNetwork - %d", selectedNetwork);
+    CATransportType_t networkType;
+    CAResult_t res = get_network_type2(selectedNetwork, &networkType);
+    if (CA_STATUS_OK != res)
+    {
+        return;
+    }
+
+    const char* strUri = (*env)->GetStringUTFChars(env, uri, NULL);
+    LOGI("sendRequest - %s", strUri);
+
+
+    //create remote endpoint
+    CARemoteEndpoint_t* endpoint = NULL;
+    res = CACreateRemoteEndpoint((const CAURI_t) strUri, networkType, &endpoint);
+
+    //ReleaseStringUTFChars for strUri
+    (*env)->ReleaseStringUTFChars(env, uri, strUri);
+
+    if (CA_STATUS_OK != res)
+    {
+        LOGE("Could not create remote end point");
+        return;
+    }
+
+    uint32_t optionNum = 2;
+    CAHeaderOption_t *headerOpt = (CAHeaderOption_t*) calloc(1, sizeof(CAHeaderOption_t) * optionNum);
+    if (NULL == headerOpt)
+    {
+        LOGE("Memory allocation for options failed!");
+        return;
+    }
+
+    const uint16_t ctApplicationOctetStream = 42;
+
+    headerOpt[0].optionID = 12;
+    headerOpt[0].optionLength = sizeof(uint16_t);
+    memcpy(headerOpt[0].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
+
+    headerOpt[1].optionID = 17;
+    headerOpt[1].optionLength = sizeof(uint16_t);
+    memcpy(headerOpt[1].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
+
+    CAMessageType_t messageType = msgType;
+
+    // create token
+    CAToken_t token = NULL;
+    uint8_t tokenLength = CA_MAX_TOKEN_LEN;
+
+    res = CAGenerateToken(&token, tokenLength);
+    if ((CA_STATUS_OK != res) || (!token))
+    {
+        LOGE("token generate error!!");
+
+        OICFree(headerOpt);
+        CADestroyRemoteEndpoint(endpoint);
+        return;
+    }
+
+    char resourceURI[RESOURCE_URI_LENGTH + 1] = { 0 };
+
+    get_resource_uri((const CAURI_t) strUri, resourceURI, RESOURCE_URI_LENGTH);
+
+    CAInfo_t requestData = { 0 };
+    requestData.type = messageType;
+    requestData.options = headerOpt;
+    requestData.numOptions = optionNum;
+    requestData.token = token;
+    requestData.tokenLength = tokenLength;
+
+    if (payload) {
+        const char* strPayload = (*env)->GetStringUTFChars(env, payload, NULL);
+        uint32_t length = strlen(strPayload);
+        requestData.payload = (CAPayload_t) malloc(length + 1);
+        if (NULL == requestData.payload) {
+            LOGE("Memory allocation failed!");
+
+            (*env)->ReleaseStringUTFChars(env, payload, strPayload);
+            OICFree(headerOpt);
+            CADestroyToken(token);
+            CADestroyRemoteEndpoint(endpoint);
+            return;
+        }
+        requestData.payloadLength = length;
+        memcpy(requestData.payload, strPayload, length + 1);
+
+        (*env)->ReleaseStringUTFChars(env, payload, strPayload);
+    }
+
+    CARequestInfo_t requestInfo = { 0 };
+    if (get_message_method(method, &requestInfo.method) != CA_STATUS_OK) {
+        LOGE("Unknown message method %d", method);
+
+        OICFree(headerOpt);
+        CADestroyToken(token);
+        CADestroyRemoteEndpoint(endpoint);
+        return;
+    }
+    requestInfo.info = requestData;
+
+    // send request
+    if (CA_STATUS_OK != CASendRequest(endpoint, &requestInfo))
+    {
+        LOGE("Could not send request");
+    }
+
+    // Destroy headers.
+    OICFree(headerOpt);
+
+    // destroy token
+    CADestroyToken(token);
+
+    // destroy remote endpoint
+    CADestroyRemoteEndpoint(endpoint);
+
+    free(requestData.payload);
+}
+// ------------- End Intrepid ------------------
+
+
+
 
 JNIEXPORT void JNICALL
 Java_org_iotivity_ca_service_RMInterface_RMSendReqestToAll(JNIEnv *env, jobject obj, jstring uri,
@@ -1255,6 +1413,42 @@ CAResult_t get_network_type(uint32_t selectedNetwork)
 
     return CA_NOT_SUPPORTED;
 }
+
+
+// ------------- Begin Intrepid ----------------
+
+CAResult_t get_network_type2(uint32_t selectedNetwork, CATransportType_t* networkType)
+{
+
+    uint32_t number = selectedNetwork;
+    if (!(number & 0xf))
+    {
+        return CA_NOT_SUPPORTED;
+    }
+    if (number & CA_IPV4)
+    {
+        *networkType = CA_IPV4;
+        return CA_STATUS_OK;
+    }
+    if (number & CA_IPV6)
+    {
+        *networkType = CA_IPV6;
+        return CA_STATUS_OK;
+    }
+    if (number & CA_EDR)
+    {
+        *networkType = CA_EDR;
+        return CA_STATUS_OK;
+    }
+    if (number & CA_LE)
+    {
+        *networkType = CA_LE;
+        return CA_STATUS_OK;
+    }
+
+    return CA_NOT_SUPPORTED;
+}
+// ------------- End Intrepid ------------------
 
 void callback(char *subject, char *receivedData)
 {

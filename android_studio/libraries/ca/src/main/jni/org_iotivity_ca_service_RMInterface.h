@@ -128,6 +128,14 @@ JNIEXPORT void JNICALL Java_org_iotivity_ca_service_RMInterface_RMGetNetworkInfo
 JNIEXPORT void JNICALL Java_org_iotivity_ca_service_RMInterface_RMHandleRequestResponse
   (JNIEnv *, jobject);
 
+
+// ------------- Begin Intrepid ----------------
+
+JNIEXPORT void JNICALL Java_org_iotivity_ca_service_RMInterface_sendRequest
+  (JNIEnv *, jobject, jstring, jstring, jint, jint, jint);
+
+// ------------- End Intrepid ------------------
+
 #ifdef __cplusplus
 }
 #endif

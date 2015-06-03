@@ -81,7 +81,7 @@ def ndkBuildCmd(task, isDebug) {
     def projectPath = file('src/main').absolutePath
     def buildPath = file('build').absolutePath
 
-    task.commandLine ndkBuildExec(), "NDK_DEBUG=${isDebug?1:0}", 'V=1',
+    task.commandLine ndkBuildExec(), "NDK_DEBUG=${isDebug?1:1}", 'V=1',
             '-C', projectPath,
             "NDK_OUT=${buildPath}/intermediates/ndk/${isDebug?"debug":"release"}/obj",
             "NDK_LIBS_OUT=${buildPath}/intermediates/ndk/${isDebug?"debug":"release"}/lib"

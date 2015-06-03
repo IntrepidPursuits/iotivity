@@ -15,7 +15,7 @@ LOCAL_MODULE := RMInterface
 LOCAL_SRC_FILES := ResourceModel.c
 LOCAL_STATIC_LIBRARIES := CA
 LOCAL_LDLIBS := -llog
-LOCAL_C_INCLUDES := $(CONNECTIVITY_ROOT_PATH)/api
+LOCAL_C_INCLUDES := $(CONNECTIVITY_ROOT_PATH)/api $(CONNECTIVITY_ROOT_PATH)/common/inc
 include $(BUILD_SHARED_LIBRARY)
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

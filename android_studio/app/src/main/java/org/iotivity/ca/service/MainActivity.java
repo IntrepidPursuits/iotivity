@@ -16,9 +16,9 @@ import android.widget.TextView;
 
 import org.threadgroup.iotivity.R;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements RMResponseReceivedIfc {
 
-    static RMInterface RM = new RMInterface();
+    RMInterface RM;
 
     private final static String TAG = "MainActivity";
 
@@ -170,10 +170,14 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (RM == null) {
+            RM = new RMInterface(this);
+        }
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        RM.setResponseListener(this);
+        RMInterfaceFactory.setResponseListener(this);
 
         mLogHandler = new Handler();
         TextView logView = (TextView) findViewById(R.id.tv_result);
@@ -246,12 +250,6 @@ public class MainActivity extends Activity {
         mGetNetworkInfo_btn.setOnClickListener(mGetNetworkInfoHandler);
 
         showSelectModeView();
-
-        // Initialize Connectivity Abstraction
-        RM.RMInitialize(getApplicationContext());
-
-        // set handler
-        RM.RMRegisterHandler();
     }
 
     private void showSelectModeView() {
@@ -346,7 +344,8 @@ public class MainActivity extends Activity {
         super.onDestroy();
 
         // Terminate Connectivity Abstraction
-        RM.RMTerminate();
+        RMInterfaceFactory.setResponseListener(null);
+        RM.close();
         android.os.Process.killProcess(android.os.Process.myPid());
     }
 
@@ -469,8 +468,10 @@ public class MainActivity extends Activity {
 
             DLog.v(TAG, "SendRequest click");
             if ( selectedNetwork != -1) {
-                RM.RMSendRequest(mReqData_ed.getText().toString(), mPayload_ed
-                    .getText().toString(), selectedNetwork, isSecured, msgType);
+                RM.RMSendRequest(
+                        mReqData_ed.getText().toString(),
+                        mPayload_ed.getText().toString(),
+                        selectedNetwork, isSecured, msgType);
             }
             else {
                 DLog.v(TAG, "Please Select Network Type");
@@ -798,6 +799,7 @@ public class MainActivity extends Activity {
                 }).show();
     }
 
+    @Override
     public void OnResponseReceived(String subject, String receivedData) {
         String callbackData = subject + receivedData;
         DLog.v(TAG, callbackData);
