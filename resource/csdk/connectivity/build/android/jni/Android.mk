@@ -23,6 +23,7 @@ PROJECT_COMMON_INC_PATH                 = $(PROJECT_COMMON_PATH)/inc
 PROJECT_COMMON_SRC_PATH                 = $(PROJECT_COMMON_PATH)/src
 PROJECT_LIB_PATH                        = $(PROJECT_ROOT_PATH)/lib
 PROJECT_EXTERNAL_PATH                   = $(PROJECT_ROOT_PATH)/external/inc
+PROJECT_C_COMMON                        = $(APP_PATH2)/../../../../../../resource/c_common
 DTLS_LIB                                = $(EXT_LIB_PATH)/tinydtls
 #GLIB_PATH                               = ../../../../../../extlibs/glib/glib-2.40.2
 
@@ -91,10 +92,11 @@ LOCAL_CFLAGS += -std=c99
 
 LOCAL_C_INCLUDES = $(PROJECT_COMMON_INC_PATH)
 LOCAL_C_INCLUDES += $(PROJECT_API_PATH)
+LOCAL_C_INCLUDES += $(PROJECT_C_COMMON)/oic_malloc/include $(PROJECT_C_COMMON)/oic_string/include
 
 LOCAL_SRC_FILES =       oic_logger.c \
-                        oic_console_logger.c logger.c oic_malloc.c \
-                        uarraylist.c uqueue.c oic_string.c \
+                        oic_console_logger.c logger.c $(PROJECT_C_COMMON)/oic_malloc/src/oic_malloc.c \
+                        uarraylist.c uqueue.c $(PROJECT_C_COMMON)/oic_string/src/oic_string.c \
                         cathreadpool_pthreads.c camutex_pthreads.c
 $(info CACommon_$(LOCAL_CFLAGS))
 include $(BUILD_STATIC_LIBRARY)
@@ -139,6 +141,7 @@ LOCAL_C_INCLUDES += $(PROJECT_COMMON_INC_PATH)
 LOCAL_C_INCLUDES += $(PROJECT_INC_PATH)
 LOCAL_C_INCLUDES += $(PROJECT_LIB_PATH)/libcoap-4.1.1
 LOCAL_C_INCLUDES += $(PROJECT_EXTERNAL_PATH)
+LOCAL_C_INCLUDES += $(PROJECT_C_COMMON)/oic_malloc/include $(PROJECT_C_COMMON)/oic_string/include
 LOCAL_C_INCLUDES += $(DTLS_LIB)
 
 LOCAL_CFLAGS += $(BUILD_FLAG)
