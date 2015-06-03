@@ -203,8 +203,9 @@ dsrv_print_addr(const session_t *addr, char *buf, size_t len) {
 #endif
 }
 
+#ifndef __ANDROID__
 #ifndef WITH_CONTIKI
-void 
+void
 dsrv_log(log_t level, char *format, ...) {
   static char timebuf[32];
   va_list ap;
@@ -218,7 +219,7 @@ dsrv_log(log_t level, char *format, ...) {
   if (print_timestamp(timebuf,sizeof(timebuf), time(NULL)))
     fprintf(log_fd, "%s ", timebuf);
 
-  if (level <= DTLS_LOG_DEBUG) 
+  if (level <= DTLS_LOG_DEBUG)
     fprintf(log_fd, "%s ", loglevels[level]);
 
   va_start(ap, format);
@@ -227,7 +228,7 @@ dsrv_log(log_t level, char *format, ...) {
   fflush(log_fd);
 }
 #elif defined (HAVE_VPRINTF) /* WITH_CONTIKI */
-void 
+void
 dsrv_log(log_t level, char *format, ...) {
   static char timebuf[32];
   va_list ap;
@@ -238,7 +239,7 @@ dsrv_log(log_t level, char *format, ...) {
   if (print_timestamp(timebuf,sizeof(timebuf), clock_time()))
     PRINTF("%s ", timebuf);
 
-  if (level <= DTLS_LOG_DEBUG) 
+  if (level <= DTLS_LOG_DEBUG)
     PRINTF("%s ", loglevels[level]);
 
   va_start(ap, format);
@@ -246,6 +247,8 @@ dsrv_log(log_t level, char *format, ...) {
   va_end(ap);
 }
 #endif /* WITH_CONTIKI */
+#endif /* ANDROID */
+
 
 #ifndef NDEBUG
 /** dumps packets in usual hexdump format */

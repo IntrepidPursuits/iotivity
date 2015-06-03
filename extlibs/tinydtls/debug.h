@@ -32,6 +32,10 @@
 #include "global.h"
 #include "session.h"
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #ifdef WITH_CONTIKI
 # ifndef DEBUG
 #  define DEBUG DEBUG_PRINT
@@ -84,10 +88,14 @@ void dtls_set_log_level(log_t level);
  * Writes the given text to \c stdout. The text is output only when \p
  * level is below or equal to the log level that set by
  * set_log_level(). */
+#ifdef __ANDROID__
+#define dsrv_log(level, format, ...) __android_log_print(ANDROID_LOG_DEBUG, "dtls", format, ##__VA_ARGS__)
+#else
 #ifdef HAVE_VPRINTF
 void dsrv_log(log_t level, char *format, ...);
 #else
 #define dsrv_log(level, format, ...) PRINTF(format, ##__VA_ARGS__)
+#endif
 #endif
 
 /** dumps packets in usual hexdump format */
