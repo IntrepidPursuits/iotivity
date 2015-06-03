@@ -25,7 +25,7 @@
 #include "ocobserve.h"
 #include "ocresourcehandler.h"
 #include "ocrandom.h"
-#include "ocmalloc.h"
+#include "oic_malloc.h"
 #include "ocserverrequest.h"
 #include "cJSON.h"
 
@@ -44,14 +44,12 @@ static struct ResourceObserver * serverObsList = NULL;
 static char* GetJSONStringForPresence(uint32_t ttl, uint32_t nonce,
         OCPresenceTrigger trigger, OCResourceType *resourceType)
 {
-    cJSON *rootObj = cJSON_CreateObject();
-    if (!rootObj)
-    {
-        return NULL;
-    }
-
     char *jsonEncodedInfo = NULL;
     const char * triggerStr = NULL;
+
+    cJSON *rootObj = cJSON_CreateObject();
+    VERIFY_NON_NULL (rootObj);
+
     cJSON_AddItemToObject (rootObj, OC_RSRVD_TTL, cJSON_CreateNumber(ttl));
 
     cJSON_AddItemToObject (rootObj, OC_RSRVD_NONCE, cJSON_CreateNumber(nonce));
@@ -104,7 +102,7 @@ static OCStackResult BuildPresenceResponse(char *out, uint16_t *remaining,
             ret = OC_STACK_ERROR;
         }
 
-        OCFree(jsonStr);
+        OICFree(jsonStr);
     }
     else
     {
@@ -334,7 +332,7 @@ OCStackResult SendListObserverNotification (OCResource * resource,
                     {
                         OCEntityHandlerResponse ehResponse = {};
                         ehResponse.ehResult = OC_EH_OK;
-                        ehResponse.payload = (char *) OCMalloc(MAX_RESPONSE_LENGTH + 1);
+                        ehResponse.payload = (char *) OICMalloc(MAX_RESPONSE_LENGTH + 1);
                         if(!ehResponse.payload)
                         {
                             FindAndDeleteServerRequest(request);
@@ -354,7 +352,7 @@ OCStackResult SendListObserverNotification (OCResource * resource,
                             // Increment only if OCDoResponse is successful
                             numSentNotification++;
 
-                            OCFree(ehResponse.payload);
+                            OICFree(ehResponse.payload);
                             FindAndDeleteServerRequest(request);
                         }
                         else
@@ -441,19 +439,19 @@ OCStackResult AddObserver (const char         *resUri,
         return OC_STACK_INVALID_PARAM;
     }
 
-    obsNode = (ResourceObserver *) OCCalloc(1, sizeof(ResourceObserver));
+    obsNode = (ResourceObserver *) OICCalloc(1, sizeof(ResourceObserver));
     if (obsNode)
     {
         obsNode->observeId = obsId;
 
-        obsNode->resUri = (char *)OCMalloc(strlen(resUri)+1);
+        obsNode->resUri = (char *)OICMalloc(strlen(resUri)+1);
         VERIFY_NON_NULL (obsNode->resUri);
         memcpy (obsNode->resUri, resUri, strlen(resUri)+1);
 
         obsNode->qos = qos;
         if(query)
         {
-            obsNode->query = (char *)OCMalloc(strlen(query)+1);
+            obsNode->query = (char *)OICMalloc(strlen(query)+1);
             VERIFY_NON_NULL (obsNode->query);
             memcpy (obsNode->query, query, strlen(query)+1);
         }
@@ -461,7 +459,7 @@ OCStackResult AddObserver (const char         *resUri,
         // particular library implementation (it may or may not be a null pointer).
         if(tokenLength)
         {
-            obsNode->token = (CAToken_t)OCMalloc(tokenLength);
+            obsNode->token = (CAToken_t)OICMalloc(tokenLength);
             VERIFY_NON_NULL (obsNode->token);
             memcpy(obsNode->token, token, tokenLength);
         }
@@ -476,9 +474,9 @@ OCStackResult AddObserver (const char         *resUri,
 exit:
     if (obsNode)
     {
-        OCFree(obsNode->resUri);
-        OCFree(obsNode->query);
-        OCFree(obsNode);
+        OICFree(obsNode->resUri);
+        OICFree(obsNode->query);
+        OICFree(obsNode);
     }
     return OC_STACK_NO_MEMORY;
 }
@@ -537,10 +535,10 @@ OCStackResult DeleteObserverUsingToken (CAToken_t token, uint8_t tokenLength)
         OC_LOG_V(INFO, TAG, PCF("deleting tokens"));
         OC_LOG_BUFFER(INFO, TAG, (const uint8_t *)obsNode->token, tokenLength);
         LL_DELETE (serverObsList, obsNode);
-        OCFree(obsNode->resUri);
-        OCFree(obsNode->query);
-        OCFree(obsNode->token);
-        OCFree(obsNode);
+        OICFree(obsNode->resUri);
+        OICFree(obsNode->query);
+        OICFree(obsNode->token);
+        OICFree(obsNode);
     }
     // it is ok if we did not find the observer...
     return OC_STACK_OK;
@@ -581,7 +579,7 @@ CreateObserveHeaderOption (CAHeaderOption_t **caHdrOpt,
 
     CAHeaderOption_t *tmpHdrOpt = NULL;
 
-    tmpHdrOpt = (CAHeaderOption_t *) OCCalloc ((numOptions+1), sizeof(CAHeaderOption_t));
+    tmpHdrOpt = (CAHeaderOption_t *) OICCalloc ((numOptions+1), sizeof(CAHeaderOption_t));
     if (NULL == tmpHdrOpt)
     {
         return OC_STACK_NO_MEMORY;

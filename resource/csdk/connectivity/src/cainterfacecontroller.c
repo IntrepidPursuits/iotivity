@@ -46,6 +46,8 @@ static CANetworkPacketReceivedCallback g_networkPacketReceivedCallback = NULL;
 
 static CANetworkChangeCallback g_networkChangeCallback = NULL;
 
+static CAErrorHandleCallback g_errorHandleCallback = NULL;
+
 static int CAGetAdapterIndex(CATransportType_t cType)
 {
     switch (cType)
@@ -129,6 +131,18 @@ static void CANetworkChangedCallback(CALocalConnectivity_t *info,
     }
 }
 
+static void CAAdapterErrorHandleCallback(const CARemoteEndpoint_t *endpoint, const void *data,
+                                         uint32_t dataLen, CAResult_t result)
+{
+    OIC_LOG(DEBUG, TAG, "received error from adapter in interfacecontroller");
+
+    // Call the callback.
+    if (g_errorHandleCallback != NULL)
+    {
+        g_errorHandleCallback(endpoint, data, dataLen, result);
+    }
+}
+
 void CAInitializeAdapters(ca_thread_pool_t handle)
 {
     OIC_LOG(DEBUG, TAG, "initialize adapters..");
@@ -138,8 +152,19 @@ void CAInitializeAdapters(ca_thread_pool_t handle)
     // Initialize adapters and register callback.
 #ifdef IP_ADAPTER
     CAInitializeIP(CARegisterCallback, CAReceivedPacketCallback, CANetworkChangedCallback,
-                   CAAdapterErrorHandleCallback, handle);
+                         handle);
 #endif /* IP_ADAPTER */
+
+#ifdef EDR_ADAPTER
+    CAInitializeEDR(CARegisterCallback, CAReceivedPacketCallback, CANetworkChangedCallback,
+                    handle);
+#endif /* EDR_ADAPTER */
+
+#ifdef LE_ADAPTER
+    CAInitializeLE(CARegisterCallback, CAReceivedPacketCallback, CANetworkChangedCallback,
+                   handle);
+#endif /* LE_ADAPTER */
+
 }
 
 void CASetPacketReceivedCallback(CANetworkPacketReceivedCallback callback)
@@ -154,6 +179,12 @@ void CASetNetworkChangeCallback(CANetworkChangeCallback callback)
     OIC_LOG(DEBUG, TAG, "Set network change callback");
 
     g_networkChangeCallback = callback;
+}
+
+void CASetErrorHandleCallback(CAErrorHandleCallback errorCallback)
+{
+    OIC_LOG(DEBUG, TAG, "Set error handle callback");
+    g_errorHandleCallback = errorCallback;
 }
 
 CAResult_t CAStartAdapter(CATransportType_t transportType)
@@ -243,7 +274,8 @@ CAResult_t CAGetNetworkInfo(CALocalConnectivity_t **info, uint32_t *size)
     // #3. add data into result
     // memory allocation
 
-    CALocalConnectivity_t * resInfo = OICCalloc(resSize, sizeof(*resInfo));
+    CALocalConnectivity_t *resInfo = (CALocalConnectivity_t *)
+                                     OICCalloc(resSize, sizeof(CALocalConnectivity_t));
     CA_MEMORY_ALLOC_CHECK(resInfo);
 
     // #4. save data
@@ -325,13 +357,13 @@ CAResult_t CASendMulticastData(const void *data, uint32_t length)
 {
     OIC_LOG(DEBUG, TAG, "Send multicast data to enabled interface..");
 
-    CAResult_t res = CA_STATUS_FAILED;
+    CAResult_t res = CA_SEND_FAILED;
     u_arraylist_t *list = CAGetSelectedNetworkList();
 
     if (!list)
     {
         OIC_LOG(DEBUG, TAG, "No selected network");
-        return CA_STATUS_FAILED;
+        return CA_SEND_FAILED;
     }
 
     int i = 0;
