@@ -310,6 +310,7 @@ typedef struct
     CAHeaderOption_t *options;  /** Header Options for the request */
     uint8_t numOptions;         /**< Number of Header options */
     CAPayload_t payload;        /**< payload of the request  */
+    uint8_t payloadLength;      /**< payload length, optional but necessary for binary/raw payloads */
 } CAInfo_t;
 
 /**

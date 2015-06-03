@@ -187,7 +187,8 @@ coap_pdu_t *CAGeneratePDU(const char *uri, uint32_t code, const CAInfo_t info)
             coap_delete_list(optlist);
             return NULL;
         }
-        size_t lenPayload = info.payload ? strlen(info.payload) : 0;
+
+        size_t lenPayload = info.payload ? (info.payloadLength? info.payloadLength : strlen(info.payload)) : 0;
         pdu = CAGeneratePDUImpl((code_t) code, optlist, info, info.payload, lenPayload);
         if (NULL == pdu)
         {
@@ -298,7 +299,12 @@ coap_pdu_t *CAGeneratePDUImpl(code_t code, coap_list_t *options, const CAInfo_t 
 
     if (NULL != payload)
     {
-        OIC_LOG_V(DEBUG, TAG, "add data, payload:%s", payload);
+        if (!info.payloadLength) {
+            OIC_LOG_V(DEBUG, TAG, "add data, payload:%s", payload);
+        }
+        else {
+            OIC_LOG_V(DEBUG, TAG, "add binary data, payload-length:%d", payloadSize);
+        }
         coap_add_data(pdu, payloadSize, (const unsigned char *) payload);
     }
 
@@ -716,8 +722,10 @@ CAResult_t CAGetInfoFromPDU(const coap_pdu_t *pdu, uint32_t *outCode, CAInfo_t *
     // set payload data
     if (NULL != pdu->data)
     {
-        uint32_t payloadLength = strlen((char*) pdu->data);
-        OIC_LOG(DEBUG, TAG, "inside pdu->data");
+        // Allow for binary payload data that is not nececessarly null-terminated.
+        uint32_t payloadEnd = (uint32_t)((unsigned char *)pdu->hdr + pdu->length);
+        uint32_t payloadStart = (uint32_t)((unsigned char *)pdu->data);
+        uint32_t payloadLength = payloadEnd - payloadStart;
         outInfo->payload = (char *) OICMalloc(payloadLength + 1);
         if (NULL == outInfo->payload)
         {
@@ -728,7 +736,8 @@ CAResult_t CAGetInfoFromPDU(const coap_pdu_t *pdu, uint32_t *outCode, CAInfo_t *
         }
         memcpy(outInfo->payload, pdu->data, payloadLength);
         outInfo->payload[payloadLength] = '\0';
-    }
+        OIC_LOG_V(DEBUG, TAG, "inside pdu->data %s (%d)", outInfo->payload, payloadLength);
+   }
 
     uint32_t length = strlen(optionResult);
     OIC_LOG_V(DEBUG, TAG, "URL length:%d,%d,%d", length, buflen, strlen(outUri));
