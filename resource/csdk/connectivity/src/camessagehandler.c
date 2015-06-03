@@ -427,14 +427,21 @@ static void CAReceivedPacketCallback(CARemoteEndpoint_t *endpoint, void *data, u
             return;
         }
 
+
+        OIC_LOG_V(DEBUG, TAG, "Response- type:   %d", ResInfo->info.type);
+        OIC_LOG_V(DEBUG, TAG, "Response- result: %d", ResInfo->result);
+        OIC_LOG_V(DEBUG, TAG, "Response- msgID:  %d", ResInfo->info.messageId);
+        OIC_LOG_V(DEBUG, TAG, "Response- token:");
+        OIC_LOG_BUFFER(DEBUG, TAG, ResInfo->info.token, ResInfo->info.tokenLength);
+
         if (NULL != ResInfo->info.options)
         {
             uint32_t i;
             for (i = 0; i < ResInfo->info.numOptions; i++)
             {
-                OIC_LOG_V(DEBUG, TAG, "Response- optionID: %d", ResInfo->info.options[i].optionID);
-
-                OIC_LOG_V(DEBUG, TAG, "Response- list: %s", ResInfo->info.options[i].optionData);
+                OIC_LOG_V(DEBUG, TAG, "Response- optionID: %d (lengh=%d)", ResInfo->info.options[i].optionID, ResInfo->info.options[i].optionLength);
+                OIC_LOG_V(DEBUG, TAG, "Response- list:");
+                OIC_LOG_BUFFER(DEBUG, TAG, ResInfo->info.options[i].optionData, ResInfo->info.options[i].optionLength);
             }
         }
 
@@ -442,9 +449,6 @@ static void CAReceivedPacketCallback(CARemoteEndpoint_t *endpoint, void *data, u
         {
             OIC_LOG_V(DEBUG, TAG, "Response- payload: %s", ResInfo->info.payload);
         }
-        OIC_LOG_V(DEBUG, TAG, "Response- code: %d", ResInfo->result);
-        OIC_LOG_V(DEBUG, TAG, "Response- token : %s", ResInfo->info.token);
-        OIC_LOG_V(DEBUG, TAG, "Response- msgID: %d", ResInfo->info.messageId);
 
         if (NULL != endpoint)
         {

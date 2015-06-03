@@ -587,13 +587,15 @@ CAResult_t CAGetInfoFromPDU(const coap_pdu_t *pdu, uint32_t *outCode, CAInfo_t *
     while ((option = coap_option_next(&opt_iter)))
     {
         char buf[COAP_MAX_PDU_SIZE] = {0};
+        uint32_t pduOptLength = COAP_OPT_LENGTH(option);
         if (CAGetOptionData((uint8_t *)(COAP_OPT_VALUE(option)),
-                            COAP_OPT_LENGTH(option), (uint8_t *)buf, sizeof(buf)))
+                            pduOptLength, (uint8_t *)buf, sizeof(buf)))
         {
-            OIC_LOG_V(DEBUG, TAG, "COAP URI element : %s", buf);
-            uint32_t bufLength = strlen(buf);
             if (COAP_OPTION_URI_PATH == opt_iter.type || COAP_OPTION_URI_QUERY == opt_iter.type)
             {
+                OIC_LOG_V(DEBUG, TAG, "COAP URI element : %s", buf);
+                uint32_t bufLength = pduOptLength;
+
                 if (false == isfirstsetflag)
                 {
                     isfirstsetflag = true;
@@ -671,7 +673,7 @@ CAResult_t CAGetInfoFromPDU(const coap_pdu_t *pdu, uint32_t *outCode, CAInfo_t *
             {
                 if (idx < count)
                 {
-                    uint32_t length = bufLength;
+                    uint32_t length = pduOptLength;
 
                     if (length <= CA_MAX_HEADER_OPTION_DATA_LENGTH)
                     {
