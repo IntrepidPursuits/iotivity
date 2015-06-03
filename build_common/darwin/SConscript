@@ -18,6 +18,7 @@ tc_sdks=commands.getoutput('xcodebuild -showsdks')
 
 #Find the SDK's that are installed
 sdks=[]
+bIn=False
 for line in tc_sdks.split('\n'):
     if (line == ''):
         bIn=False
