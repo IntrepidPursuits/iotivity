@@ -2,6 +2,7 @@
 
 #specify project root path here wrt make file directory
 CONNECTIVITY_ROOT_PATH = ../../../../../resource/csdk/connectivity
+C_COMMON_ROOT_PATH = ../../../../../resource/c_common
 
 include $(CLEAR_VARS)
 LOCAL_PATH := ./jni
@@ -15,7 +16,7 @@ LOCAL_MODULE := RMInterface
 LOCAL_SRC_FILES := ResourceModel.c
 LOCAL_STATIC_LIBRARIES := CA
 LOCAL_LDLIBS := -llog
-LOCAL_C_INCLUDES := $(CONNECTIVITY_ROOT_PATH)/api $(CONNECTIVITY_ROOT_PATH)/common/inc
+LOCAL_C_INCLUDES := $(CONNECTIVITY_ROOT_PATH)/api $(C_COMMON_ROOT_PATH)/oic_malloc/include
 include $(BUILD_SHARED_LIBRARY)
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
