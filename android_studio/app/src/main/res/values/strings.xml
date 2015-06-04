@@ -19,4 +19,11 @@
     <string name="action_settings">Settings</string>
     <string name="payload_data_client">PayloadData</string>
     <string name="payload_data_server">PayloadData</string>
+    <string name="thread">Thread</string>
+    <string name="wifi_prompt">Tap to connect to a Wifi network</string>
+    <string name="thread_network_prompt">Tap to connect to a Thread Network</string>
+    <string name="add_device">Add Device</string>
+    <string name="wifi">Wifi</string>
+    <string name="thread_network">Thread Network</string>
+    <string name="add_device_prompt">Tap to add</string>
 </resources>

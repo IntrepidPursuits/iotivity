@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="@dimen/activity_horizontal_margin">
+
+    <RelativeLayout
+        style="@style/MainStepLayout">
+
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/wifi_checkbox"/>
+
+        <TextView
+            style="@style/MainStepTitle"
+            android:id="@+id/wifi_title"
+            android:layout_toRightOf="@id/wifi_checkbox"
+            android:text="@string/wifi"/>
+        
+        <TextView
+            style="@style/MainStepSubtitle"
+            android:layout_toRightOf="@id/wifi_checkbox"
+            android:layout_below="@id/wifi_title"
+            android:text="@string/wifi_prompt"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        style="@style/MainStepLayout">
+        
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/thread_network_checkbox"/>
+        
+        <TextView
+            style="@style/MainStepTitle"
+            android:id="@+id/thread_network_title"
+            android:layout_toRightOf="@id/thread_network_checkbox"
+            android:text="@string/thread_network"/>
+
+        <TextView
+            style="@style/MainStepSubtitle"
+            android:layout_toRightOf="@id/thread_network_checkbox"
+            android:layout_below="@id/thread_network_title"
+            android:text="@string/thread_network_prompt"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        style="@style/MainStepLayout">
+        
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/add_device_checkbox"/>
+
+        <TextView
+            style="@style/MainStepTitle"
+            android:id="@+id/add_device_title"
+            android:layout_toRightOf="@id/add_device_checkbox"
+            android:text="@string/add_device"/>
+
+        <TextView
+            style="@style/MainStepSubtitle"
+            android:layout_toRightOf="@id/add_device_checkbox"
+            android:layout_below="@id/add_device_title"
+            android:text="@string/add_device_prompt"/>
+
+    </RelativeLayout>
+
+</LinearLayout>
