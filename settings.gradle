@@ -1,1 +1,1 @@
-include ':android_studio:app', ':android_studio:libraries:ca'
+include ':android_studio:app', ':android_studio:libraries:ca', ':android_studio:libraries:materialdesign'
