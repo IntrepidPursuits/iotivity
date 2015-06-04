@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="@dimen/activity_horizontal_margin">
+
+    <LinearLayout
+        style="@style/MainStepLayout">
+
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/wifi_checkbox"/>
+
+        <TextView
+            style="@style/MainStepTitle"
+            android:text="@string/wifi_prompt"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        style="@style/MainStepLayout">
+        
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/thread_network_checkbox"/>
+        
+        <TextView
+            style="@style/MainStepTitle"
+            android:text="@string/thread_network_prompt"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        style="@style/MainStepLayout">
+        
+        <ImageView
+            style="@style/MainStepCheckbox"
+            android:id="@+id/add_device_checkbox"/>
+
+        <TextView
+            style="@style/MainStepTitle"
+            android:text="@string/add_device_prompt"/>
+
+    </LinearLayout>
+
+</LinearLayout>
