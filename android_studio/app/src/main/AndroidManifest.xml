@@ -20,7 +20,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="org.iotivity.ca.ThreadMainActivity"
+            android:name=".activities.ThreadMainActivity"
             android:label="@string/thread" />
     </application>
 

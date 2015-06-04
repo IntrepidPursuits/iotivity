@@ -1,4 +1,4 @@
-package org.iotivity.ca;
+package org.threadgroup.iotivity.activities;
 
 import android.app.Activity;
 import android.os.Bundle;
