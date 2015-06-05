@@ -40,7 +40,7 @@
 #include "canetworkconfigurator.h"
 
 #define TAG PCF("CA")
-#define SINGLE_HANDLE
+//#define SINGLE_HANDLE
 
 #define MAX_THREAD_POOL_SIZE    20
 
@@ -891,11 +891,13 @@ CAResult_t CAInitializeMessageHandler()
 
 #ifndef SINGLE_HANDLE // This will be enabled when RI supports multi threading
     // start receive thread
-    res = CAQueueingThreadStart(&gReceiveThread);
+    res = CAQueueingThreadStart(&g_receiveThread);
 
     if (res != CA_STATUS_OK)
     {
         OIC_LOG(ERROR, TAG, "thread start error(receive thread).");
+        ca_thread_pool_free(g_threadPoolHandle);
+        g_threadPoolHandle = NULL;
         return res;
     }
 #endif
@@ -958,7 +960,7 @@ void CATerminateMessageHandler()
     if (NULL != g_receiveThread.threadMutex)
     {
 #ifndef SINGLE_HANDLE // This will be enabled when RI supports multi threading
-        CAQueueingThreadStop(&gReceiveThread);
+        CAQueueingThreadStop(&g_receiveThread);
 #endif
     }
 
