@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "cainterface.h"
 #include "cacommon.h"
@@ -14,6 +15,49 @@
 #define  LOG_TAG   "JNI_INTERFACE_SAMPLE"
 #define  LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define  LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+// TLV stuff
+#define STRLEN(STR) ( (STR)? strlen(STR) : 0 )
+#define STRCPY(STR) ( (STR)? strcpy(calloc(STRLEN(STR) + 1, sizeof(char)), STR) : NULL )
+
+#define TLV_COMMISSIONER_ID 10
+#define NEW_TLV_COMMISSIONER_ID(ID) ( newTLV(TLV_COMMISSIONER_ID, STRLEN(ID), (MC_Value){ .rawVal = (ID)}) )
+
+#define TLV_COMMISSIONER_SESSION_ID 11
+#define NEW_TLV_COMMISSIONER_SESSION_ID(ID) ( newTLV(TLV_COMMISSIONER_SESSION_ID, STRLEN(ID), (MC_Value){ .rawVal = (ID)}) )
+
+#define TLV_STATE 16
+#define NEW_TLV_STATE(STATE) ( newTLV(TLV_STATE, sizeof(uint8_t), (MC_Value){ .byteVal = (STATE)}) )
+
+// Header info
+typedef union {
+    uint8_t  byteVal;
+    uint16_t shortVal;
+    uint32_t intVal;
+    long     longVal;
+    char*    rawVal;
+} MC_Value;
+
+typedef struct {
+    uint8_t  type;
+    uint8_t  length;
+    MC_Value value;
+} MCTLV_t;
+
+/* External functions */
+MCTLV_t* newTLV(uint8_t type, uint8_t length, MC_Value mcValue);
+void destroyTLV(MCTLV_t *tlv);
+
+void determineTLVBufferLength(MCTLV_t *tlv, uint32_t *bufferStart);
+void writeTLVToBuffer(MCTLV_t *tlv, char* buffer, uint32_t *bufferStart);
+MCTLV_t* writeBufferToTLV(char* buffer, uint32_t *bufferStart);
+
+void logTLV(MCTLV_t *tlv);
+// End TLV stuff
+
+
+
+
 
 /**
  * @def RS_IDENTITY
@@ -35,13 +79,16 @@ uint16_t g_localSecurePort = SECURE_DEFAULT_PORT;
 
 void request_handler(const CARemoteEndpoint_t* object, const CARequestInfo_t* requestInfo);
 void response_handler(const CARemoteEndpoint_t* object, const CAResponseInfo_t* responseInfo);
+void mc_response_handler(const CARemoteEndpoint_t* object, const CAResponseInfo_t* responseInfo);
 void error_handler(const CARemoteEndpoint_t *object, const CAErrorInfo_t *errorInfo);
 void get_resource_uri(const char *URI, char *resourceURI, uint32_t length);
+char* get_resource_uri2(const char *URI, uint32_t maxLength);
 uint32_t get_secure_information(CAPayload_t payLoad);
 CAResult_t get_network_type(uint32_t selectedNetwork);
 CAResult_t get_network_type2(uint32_t selectedNetwork, CATransportType_t *networkType);
 void callback(char *subject, char *receivedData);
 CAResult_t get_remote_address(CATransportType_t transportType, CAAddress_t addressInfo);
+char* get_remote_address2(CATransportType_t transportType, CAAddress_t addressInfo);
 
 CATransportType_t g_selectedNwType = CA_IPV4;
 static CAToken_t g_lastRequestToken = NULL;
@@ -73,6 +120,12 @@ Java_org_iotivity_ca_service_RMInterface_setNativeResponseListener(JNIEnv *env, 
                                                                 jobject listener)
 {
     LOGI("setNativeResponseListener");
+
+    if (g_responseListenerObject) {
+        (*env)->DeleteGlobalRef(env, g_responseListenerObject);
+        g_responseListenerObject = NULL;
+    }
+
     g_responseListenerObject = (*env)->NewGlobalRef(env, obj);
 }
 
@@ -153,8 +206,10 @@ CAResult_t SetCredentials()
 }
 #endif
 
+void test();
 JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
+    test();
     LOGI("JNI_OnLoad");
 
     JNIEnv* env;
@@ -219,6 +274,11 @@ Java_org_iotivity_ca_service_RMInterface_RMTerminate(JNIEnv *env, jobject obj)
     LOGI("RMTerminate");
     CADestroyToken(g_lastRequestToken);
     CATerminate();
+
+    if (g_responseListenerObject) {
+        (*env)->DeleteGlobalRef(env, g_responseListenerObject);
+        g_responseListenerObject = NULL;
+    }
 }
 
 JNIEXPORT void JNICALL
@@ -248,7 +308,7 @@ Java_org_iotivity_ca_service_RMInterface_RMRegisterHandler(JNIEnv *env, jobject 
 {
     LOGI("RMRegisterHandler");
 
-    CARegisterHandler(request_handler, response_handler, error_handler);
+    CARegisterHandler(request_handler, mc_response_handler, error_handler);
 }
 
 JNIEXPORT void JNICALL
@@ -486,10 +546,6 @@ Java_org_iotivity_ca_service_RMInterface_sendRequest(JNIEnv *env, jobject obj, j
         return;
     }
 
-    char resourceURI[RESOURCE_URI_LENGTH + 1] = { 0 };
-
-    get_resource_uri((const CAURI_t) strUri, resourceURI, RESOURCE_URI_LENGTH);
-
     CAInfo_t requestData = { 0 };
     requestData.type = messageType;
     requestData.options = headerOpt;
@@ -532,6 +588,10 @@ Java_org_iotivity_ca_service_RMInterface_sendRequest(JNIEnv *env, jobject obj, j
     {
         LOGE("Could not send request");
     }
+    else {
+        LOGI("Request sent successfully");
+
+    }
 
     // Destroy headers.
     OICFree(headerOpt);
@@ -544,6 +604,125 @@ Java_org_iotivity_ca_service_RMInterface_sendRequest(JNIEnv *env, jobject obj, j
 
     free(requestData.payload);
 }
+
+void COMM_PET_request(uint32_t selectedNetwork, char* strUri, char* commissionerId) {
+
+    // Determine network type
+    CATransportType_t networkType;
+    CAResult_t res = get_network_type2(selectedNetwork, &networkType);
+    if (CA_STATUS_OK != res)
+    {
+        return;
+    }
+
+    // Create remote endpoint
+    CARemoteEndpoint_t* endpoint = NULL;
+    res = CACreateRemoteEndpoint((const CAURI_t) strUri, networkType, &endpoint);
+    if (CA_STATUS_OK != res)
+    {
+        LOGE("Could not create remote end point");
+        return;
+    }
+
+    // Create options/headers
+    uint32_t optionNum = 2;
+    CAHeaderOption_t *headerOpt = (CAHeaderOption_t*) calloc(1, sizeof(CAHeaderOption_t) * optionNum);
+    if (NULL == headerOpt)
+    {
+        LOGE("Memory allocation for options failed!");
+        return;
+    }
+
+    const uint16_t ctApplicationOctetStream = 42;
+
+    headerOpt[0].optionID = 12; // Content-Type
+    headerOpt[0].optionLength = sizeof(uint16_t);
+    memcpy(headerOpt[0].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
+
+    headerOpt[1].optionID = 17; // Accept
+    headerOpt[1].optionLength = sizeof(uint16_t);
+    memcpy(headerOpt[1].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
+
+    // Create token
+    CAToken_t token = NULL;
+    uint8_t tokenLength = CA_MAX_TOKEN_LEN;
+
+    res = CAGenerateToken(&token, tokenLength);
+    if ((CA_STATUS_OK != res) || (!token))
+    {
+        LOGE("token generate error!!");
+
+        OICFree(headerOpt);
+        CADestroyRemoteEndpoint(endpoint);
+        return;
+    }
+
+    // Determine payload
+    MCTLV_t *tlv = NEW_TLV_COMMISSIONER_ID(commissionerId);
+    if (!tlv) {
+        LOGE("TLV generate error!!");
+
+        OICFree(headerOpt);
+        CADestroyRemoteEndpoint(endpoint);
+        return;
+    }
+
+    uint32_t bufferLen = 0;
+    determineTLVBufferLength(tlv, &bufferLen);
+    char *buffer = malloc(bufferLen + 1);
+    if (!buffer) {
+        LOGE("TLV Buffer generate error!!");
+
+        destroyTLV(tlv);
+        OICFree(headerOpt);
+        CADestroyRemoteEndpoint(endpoint);
+        return;
+    }
+
+    writeTLVToBuffer(tlv, buffer, NULL);
+    buffer[bufferLen] = 0;
+
+    destroyTLV(tlv);
+    // End determine payload
+
+    // Put all msg-data together.
+    CAInfo_t requestData = { 0 };
+    requestData.type = CA_MSG_CONFIRM;
+    requestData.options = headerOpt;
+    requestData.numOptions = optionNum;
+    requestData.token = token;
+    requestData.tokenLength = tokenLength;
+
+    requestData.payload = buffer;
+    requestData.payloadLength = bufferLen;
+
+    CARequestInfo_t requestInfo = { 0 };
+    requestInfo.method = CA_POST;
+    requestInfo.info = requestData;
+
+    // Send request
+    if (CA_STATUS_OK != CASendRequest(endpoint, &requestInfo))
+    {
+        LOGE("Could not send request");
+    }
+    else {
+        LOGI("Request sent successfully");
+
+    }
+
+    // Destroy headers.
+    OICFree(headerOpt);
+
+    // Destroy token
+    CADestroyToken(token);
+
+    // Destroy remote endpoint
+    CADestroyRemoteEndpoint(endpoint);
+
+    // Destroy payload buffer.
+    free(requestData.payload);
+}
+
 // ------------- End Intrepid ------------------
 
 
@@ -1314,9 +1493,71 @@ void response_handler(const CARemoteEndpoint_t* object, const CAResponseInfo_t* 
     }
 }
 
+void mc_response_handler(const CARemoteEndpoint_t* object, const CAResponseInfo_t* responseInfo) {
+
+    CAResult_t res;
+
+    char *remoteAddress = get_remote_address2(object->transportType, object->addressInfo);
+    if (remoteAddress == NULL) {
+        LOGE("Response did not contain a proper remote-address");
+        return;
+    }
+    char *remotePath = get_resource_uri2(object->resourceUri, RESOURCE_URI_LENGTH); // Combined Uri-Path
+
+    // TODO based on remotePath, get the correct repsonse-struct (e.g COMM_PET_response, MGMT_SET_response, etc)
+    // We don't have to really worry about whether the messageId matches the original request or not; that has already been handled).
+    // We may want to hold on to the original request's token and match that with the response-token.
+
+    CAResponseResult_t result = responseInfo->result;
+    CAInfo_t *info = &responseInfo->info;
+
+// CAInfo_t:
+//    CAMessageType_t type;       /**< Qos for the request */
+//    uint16_t messageId;         /**< Message id.
+//                                 * if message id is zero, it will generated by CA inside.
+//                                 * otherwise, you can use it */
+//    CAToken_t token;            /**< Token for CA */
+//    uint8_t tokenLength;        /**< token length*/
+//    CAHeaderOption_t *options;  /** Header Options for the request */
+//    uint8_t numOptions;         /**< Number of Header options */
+//    CAPayload_t payload;        /**< payload of the request  */
+//    uint8_t payloadLength;      /**< payload length, optional but necessary for binary/raw payloads */
+
+
+
+    if (result == CA_EMPTY) {
+    }
+    else if (CA_SUCCESS <= result && result < CA_BAD_REQ) {
+        // Success
+        if (info->type == CA_MSG_RESET) {
+            // Remote device lost context and asks for a client reset.
+        }
+        else if (info->type == CA_MSG_ACKNOWLEDGE) {
+            // Good. Got a response back.
+        }
+    }
+    else if(CA_BAD_REQ <= result && result < CA_INTERNAL_SERVER_ERROR) {
+        // Client error (incorrect params, not found, etc.)
+    }
+    else if (result == CA_RETRANSMIT_TIMEOUT) {
+        // Sending was successful but never received a proper response from target.
+    }
+    else {
+        // Remote device error or connection error
+    }
+
+
+    if (remotePath) {
+        free(remotePath);
+    }
+
+    free(remoteAddress);
+}
+
+
 void error_handler(const CARemoteEndpoint_t *rep, const CAErrorInfo_t* errorInfo)
 {
-    printf("+++++++++++++++++++++++++++++++++++ErrorInfo+++++++++++++++++++++++++++++++++++");
+    printf("#########################ErrorInfo#########################");
 
     if(rep && rep->resourceUri  )
     {
@@ -1358,7 +1599,7 @@ void error_handler(const CARemoteEndpoint_t *rep, const CAErrorInfo_t* errorInfo
             LOGE("CA_STATUS_FAILED, message could not be delivered, internal error");
         }
     }
-    LOGI("++++++++++++++++++++++++++++++++End of ErrorInfo++++++++++++++++++++++++++++++++");
+    LOGI("#########################End of ErrorInfo#########################");
 
     return;
 }
@@ -1390,6 +1631,43 @@ void get_resource_uri(const char *URI, char *resourceURI, uint32_t length)
     }
 
     LOGI("URI: %s, ResourceURI: %s", URI, resourceURI);
+}
+
+char* get_resource_uri2(const char *URI, uint32_t maxLength) {
+    if (URI == NULL) {
+        return NULL;
+    }
+
+    char *resourceURI;
+    const char *startPos = URI;
+    const char *temp = NULL;
+    if (NULL != (temp = strstr(URI, "://"))) {
+        startPos = strchr(temp + 3, '/');
+        if (!startPos) {
+            LOGE("Resource URI is missing");
+            return NULL;
+        }
+    }
+
+    const char *endPos = strchr(startPos, '?');
+    if (!endPos) {
+        endPos = URI + strlen(URI);
+    }
+    --endPos;
+
+    uint32_t uriLength = endPos - startPos;
+    if (uriLength > 0 && uriLength <= maxLength) {
+        resourceURI = malloc(uriLength + 1);
+        if (resourceURI == NULL) {
+            LOGI("get_resource_uri: Not enough memory");
+            return NULL;
+        }
+        memcpy(resourceURI, startPos + 1, uriLength);
+        resourceURI[uriLength] = 0;
+    }
+
+    LOGI("URI: %s, ResourceURI: %s", URI, resourceURI);
+    return resourceURI;
 }
 
 uint32_t get_secure_information(CAPayload_t payLoad)
@@ -1498,13 +1776,53 @@ CAResult_t get_network_type2(uint32_t selectedNetwork, CATransportType_t* networ
 
     return CA_NOT_SUPPORTED;
 }
+
+bool attachThread(JNIEnv **env) {
+    *env = NULL;
+    jint status = (*g_jvm)->GetEnv(g_jvm, (void **) env, JNI_VERSION_1_6);
+    if (status == JNI_OK) {
+        // Already attached. Don't detach later.
+        return false;
+    }
+
+    if (status == JNI_EDETACHED) {
+        if ((*g_jvm)->AttachCurrentThread(g_jvm, env, NULL) == JNI_OK) {
+            // Was attached right now. Detach later.
+            return true;
+        }
+    }
+
+    // Something went wrong. Don't detach later.
+    *env = NULL;
+    return false;
+}
+
+void detachThread(bool wasAttached) {
+    if (wasAttached) {
+        (*g_jvm)->DetachCurrentThread(g_jvm);
+    }
+}
+
+typedef void* (*__callback__)(JNIEnv *env, ...);
+void* doAttachedCallback(__callback__ callback, ...) {
+    va_list vaList;
+    va_start(vaList, callback);
+
+    JNIEnv* env = NULL;
+    bool attached = attachThread(&env);
+    void* retVal = (callback)(env, vaList);
+    detachThread(attached);
+
+    va_end(vaList);
+    return retVal;
+}
+
 // ------------- End Intrepid ------------------
 
-void callback(char *subject, char *receivedData)
+void _callback(JNIEnv *env, va_list vaList)
 {
-    JNIEnv* env = NULL;
-    uint32_t status = (*g_jvm)->GetEnv(g_jvm, (void **) &env, JNI_VERSION_1_6);
-    uint32_t res = (*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL);
+    char *subject = va_arg(vaList, char*);
+    char *receivedData = va_arg(vaList, char*);
 
     jclass cls = (*env)->GetObjectClass(env, g_responseListenerObject);
     jmethodID mid = (*env)->GetMethodID(env, cls, "OnResponseReceived",
@@ -1513,7 +1831,10 @@ void callback(char *subject, char *receivedData)
     jstring jsubject = (*env)->NewStringUTF(env, (char*) subject);
     jstring jreceivedData = (*env)->NewStringUTF(env, (char*) receivedData);
     (*env)->CallVoidMethod(env, g_responseListenerObject, mid, jsubject, jreceivedData);
+}
 
+void callback(char *subject, char *receivedData) {
+    doAttachedCallback(_callback, subject, receivedData);
 }
 
 CAResult_t get_remote_address(CATransportType_t transportType, CAAddress_t addressInfo)
@@ -1563,4 +1884,210 @@ CAResult_t get_remote_address(CATransportType_t transportType, CAAddress_t addre
     }
 
     return CA_STATUS_OK;
+}
+
+
+char* get_remote_address2(CATransportType_t transportType, CAAddress_t addressInfo)
+{
+    char* remoteAddress = NULL;
+    uint32_t len = 0;
+    if (CA_IPV4 == transportType)
+    {
+        len = strlen(addressInfo.IP.ipAddress);
+        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
+
+        if (NULL == remoteAddress)
+        {
+            LOGE("remoteAddress Out of memory");
+            return NULL;
+        }
+
+        memcpy(remoteAddress, addressInfo.IP.ipAddress, len + 1);
+    }
+
+    else if (CA_EDR == transportType)
+    {
+        len = strlen(addressInfo.BT.btMacAddress);
+        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
+
+        if (NULL == remoteAddress)
+        {
+            LOGE("remoteAddress Out of memory");
+            return NULL;
+        }
+
+        memcpy(remoteAddress, addressInfo.BT.btMacAddress, len + 1);
+    }
+
+    else if (CA_LE == transportType)
+    {
+        len = strlen(addressInfo.LE.leMacAddress);
+        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
+
+        if (NULL == remoteAddress)
+        {
+            LOGE("remoteAddress Out of memory");
+            return NULL;
+        }
+
+        memcpy(remoteAddress, addressInfo.LE.leMacAddress, len + 1);
+    }
+
+    return remoteAddress;
+}
+
+/* ===== TLV Handler =======*/
+
+
+/*local*/uint8_t isRawType(uint8_t type) {
+    switch (type) {
+    case TLV_COMMISSIONER_ID:
+    case TLV_COMMISSIONER_SESSION_ID:
+        return true;
+    default:
+        return false;
+    }
+}
+
+MCTLV_t* newTLV(uint8_t type, uint8_t length, MC_Value mcValue) {
+    assert(length > 0);
+
+    uint8_t isRaw = isRawType(type);
+
+    MCTLV_t *retVal = calloc(1, sizeof(MCTLV_t) + (isRaw? length + 1 : 0));
+    if (!retVal) {
+        return NULL;
+    }
+    retVal->type = type;
+    retVal->length = length;
+
+    if (isRaw) {
+        retVal->value.rawVal = (char*)retVal + sizeof(MCTLV_t);
+        if (mcValue.rawVal) {
+            memcpy(retVal->value.rawVal, mcValue.rawVal, length);
+        }
+        retVal->value.rawVal[length] = 0; // in case raw value is a string.
+    }
+    else {
+        retVal->value = mcValue;
+    }
+
+    return retVal;
+}
+
+void destroyTLV(MCTLV_t *tlv) {
+    if (!tlv) {
+        return;
+    }
+    free(tlv);
+}
+
+void determineTLVBufferLength(MCTLV_t *tlv, uint32_t *bufferStart) {
+    assert(tlv != NULL);
+    assert(bufferStart != NULL);
+    *bufferStart += (2 + tlv->length);
+}
+
+void writeTLVToBuffer(MCTLV_t *tlv, char* buffer, uint32_t *bufferStart) {
+    assert(tlv != NULL);
+    assert(buffer != NULL);
+
+    uint32_t start = bufferStart? *bufferStart : 0;
+    buffer[start++] = tlv->type;
+    buffer[start++] = tlv->length;
+
+    if (isRawType(tlv->type)) {
+        memcpy(buffer + start, tlv->value.rawVal, tlv->length);
+    }
+    else {
+        memcpy(buffer + start, &(tlv->value), tlv->length);
+    }
+
+    if (bufferStart) {
+        *bufferStart += (2 + tlv->length);
+    }
+}
+
+MCTLV_t* writeBufferToTLV(char* buffer, uint32_t *bufferStart) {
+    assert(buffer != NULL);
+
+    uint32_t start = bufferStart? *bufferStart : 0;
+    uint8_t type = buffer[start++];
+    uint8_t length = buffer[start++];
+
+    MCTLV_t *tlv = newTLV(type, length, (MC_Value){ 0 });
+    if (!tlv) {
+        return NULL;
+    }
+    uint8_t isRaw = isRawType(type);
+
+    if (isRaw) {
+        memcpy(tlv->value.rawVal, buffer + start, length);
+        tlv->value.rawVal[length] = 0; // in case raw value is a string.
+    }
+    else {
+        memcpy(&(tlv->value), buffer + start, length);
+    }
+
+    if (bufferStart) {
+        *bufferStart += (2 + length);
+    }
+
+    return tlv;
+}
+
+void logTLV(MCTLV_t *tlv) {
+    if (isRawType(tlv->type)) {
+        LOGI("TLV[type = %d; length = %d, value='%s']", tlv->type, tlv->length, tlv->value.rawVal);
+    }
+    else {
+        LOGI("TLV[type = %d; length = %d, value=%d]", tlv->type, tlv->length, (uint32_t)tlv->value.longVal);
+    }
+}
+
+void test() {
+    MCTLV_t** tlvp = calloc(2, sizeof(MCTLV_t*));
+    tlvp[0] = NEW_TLV_COMMISSIONER_SESSION_ID("CommisionSessionValue");
+    tlvp[1] = NEW_TLV_STATE(39);
+
+    LOGI("Test: TLVs After creation:");
+    logTLV(tlvp[0]);
+    logTLV(tlvp[1]);
+
+    uint32_t bufferLen = 0;
+    determineTLVBufferLength(tlvp[0], &bufferLen);
+    determineTLVBufferLength(tlvp[1], &bufferLen);
+    char *buffer = calloc(bufferLen + 1, sizeof(char));
+
+    uint32_t start = 0;
+    writeTLVToBuffer(tlvp[0], buffer, &start);
+    writeTLVToBuffer(tlvp[1], buffer, &start);
+
+    uint32_t i;
+    LOGI("Test: Payload TLVs Buffer: (%d bytes)", bufferLen);
+    for (i = 0; i < start; i+=4) {
+        LOGI("    %02x %02x %02x %02x", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3]);
+    }
+
+    MCTLV_t** tlvp2 = calloc(2, sizeof(MCTLV_t*));
+    start = 0;
+    tlvp2[0] = writeBufferToTLV(buffer, &start);
+    tlvp2[1] = writeBufferToTLV(buffer, &start);
+
+    LOGI("Test: TLVs After reading from Buffer:");
+    logTLV(tlvp2[0]);
+    logTLV(tlvp2[1]);
+
+    assert(strcmp(tlvp[0]->value.rawVal, tlvp2[0]->value.rawVal) == 0);
+
+    destroyTLV(tlvp[0]);
+    destroyTLV(tlvp[1]);
+
+    destroyTLV(tlvp2[0]);
+    destroyTLV(tlvp2[1]);
+
+    free(tlvp);
+    free(tlvp2);
+
+    free(buffer);
 }
