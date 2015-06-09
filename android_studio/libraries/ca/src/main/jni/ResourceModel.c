@@ -12,6 +12,8 @@
 
 #include "org_iotivity_ca_service_RMInterface.h"
 
+#include "MeshCop.h"
+
 #define  LOG_TAG   "JNI_INTERFACE_SAMPLE"
 #define  LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define  LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -605,123 +607,6 @@ Java_org_iotivity_ca_service_RMInterface_sendRequest(JNIEnv *env, jobject obj, j
     free(requestData.payload);
 }
 
-void COMM_PET_request(uint32_t selectedNetwork, char* strUri, char* commissionerId) {
-
-    // Determine network type
-    CATransportType_t networkType;
-    CAResult_t res = get_network_type2(selectedNetwork, &networkType);
-    if (CA_STATUS_OK != res)
-    {
-        return;
-    }
-
-    // Create remote endpoint
-    CARemoteEndpoint_t* endpoint = NULL;
-    res = CACreateRemoteEndpoint((const CAURI_t) strUri, networkType, &endpoint);
-    if (CA_STATUS_OK != res)
-    {
-        LOGE("Could not create remote end point");
-        return;
-    }
-
-    // Create options/headers
-    uint32_t optionNum = 2;
-    CAHeaderOption_t *headerOpt = (CAHeaderOption_t*) calloc(1, sizeof(CAHeaderOption_t) * optionNum);
-    if (NULL == headerOpt)
-    {
-        LOGE("Memory allocation for options failed!");
-        return;
-    }
-
-    const uint16_t ctApplicationOctetStream = 42;
-
-    headerOpt[0].optionID = 12; // Content-Type
-    headerOpt[0].optionLength = sizeof(uint16_t);
-    memcpy(headerOpt[0].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
-
-    headerOpt[1].optionID = 17; // Accept
-    headerOpt[1].optionLength = sizeof(uint16_t);
-    memcpy(headerOpt[1].optionData, &ctApplicationOctetStream, sizeof(uint16_t));
-
-    // Create token
-    CAToken_t token = NULL;
-    uint8_t tokenLength = CA_MAX_TOKEN_LEN;
-
-    res = CAGenerateToken(&token, tokenLength);
-    if ((CA_STATUS_OK != res) || (!token))
-    {
-        LOGE("token generate error!!");
-
-        OICFree(headerOpt);
-        CADestroyRemoteEndpoint(endpoint);
-        return;
-    }
-
-    // Determine payload
-    MCTLV_t *tlv = NEW_TLV_COMMISSIONER_ID(commissionerId);
-    if (!tlv) {
-        LOGE("TLV generate error!!");
-
-        OICFree(headerOpt);
-        CADestroyRemoteEndpoint(endpoint);
-        return;
-    }
-
-    uint32_t bufferLen = 0;
-    determineTLVBufferLength(tlv, &bufferLen);
-    char *buffer = malloc(bufferLen + 1);
-    if (!buffer) {
-        LOGE("TLV Buffer generate error!!");
-
-        destroyTLV(tlv);
-        OICFree(headerOpt);
-        CADestroyRemoteEndpoint(endpoint);
-        return;
-    }
-
-    writeTLVToBuffer(tlv, buffer, NULL);
-    buffer[bufferLen] = 0;
-
-    destroyTLV(tlv);
-    // End determine payload
-
-    // Put all msg-data together.
-    CAInfo_t requestData = { 0 };
-    requestData.type = CA_MSG_CONFIRM;
-    requestData.options = headerOpt;
-    requestData.numOptions = optionNum;
-    requestData.token = token;
-    requestData.tokenLength = tokenLength;
-
-    requestData.payload = buffer;
-    requestData.payloadLength = bufferLen;
-
-    CARequestInfo_t requestInfo = { 0 };
-    requestInfo.method = CA_POST;
-    requestInfo.info = requestData;
-
-    // Send request
-    if (CA_STATUS_OK != CASendRequest(endpoint, &requestInfo))
-    {
-        LOGE("Could not send request");
-    }
-    else {
-        LOGI("Request sent successfully");
-
-    }
-
-    // Destroy headers.
-    OICFree(headerOpt);
-
-    // Destroy token
-    CADestroyToken(token);
-
-    // Destroy remote endpoint
-    CADestroyRemoteEndpoint(endpoint);
-
-    // Destroy payload buffer.
-    free(requestData.payload);
-}
 
 // ------------- End Intrepid ------------------
 
@@ -1745,37 +1630,6 @@ CAResult_t get_network_type(uint32_t selectedNetwork)
 
 // ------------- Begin Intrepid ----------------
 
-CAResult_t get_network_type2(uint32_t selectedNetwork, CATransportType_t* networkType)
-{
-
-    uint32_t number = selectedNetwork;
-    if (!(number & 0xf))
-    {
-        return CA_NOT_SUPPORTED;
-    }
-    if (number & CA_IPV4)
-    {
-        *networkType = CA_IPV4;
-        return CA_STATUS_OK;
-    }
-    if (number & CA_IPV6)
-    {
-        *networkType = CA_IPV6;
-        return CA_STATUS_OK;
-    }
-    if (number & CA_EDR)
-    {
-        *networkType = CA_EDR;
-        return CA_STATUS_OK;
-    }
-    if (number & CA_LE)
-    {
-        *networkType = CA_LE;
-        return CA_STATUS_OK;
-    }
-
-    return CA_NOT_SUPPORTED;
-}
 
 bool attachThread(JNIEnv **env) {
     *env = NULL;
@@ -1887,163 +1741,10 @@ CAResult_t get_remote_address(CATransportType_t transportType, CAAddress_t addre
 }
 
 
-char* get_remote_address2(CATransportType_t transportType, CAAddress_t addressInfo)
-{
-    char* remoteAddress = NULL;
-    uint32_t len = 0;
-    if (CA_IPV4 == transportType)
-    {
-        len = strlen(addressInfo.IP.ipAddress);
-        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
-
-        if (NULL == remoteAddress)
-        {
-            LOGE("remoteAddress Out of memory");
-            return NULL;
-        }
-
-        memcpy(remoteAddress, addressInfo.IP.ipAddress, len + 1);
-    }
-
-    else if (CA_EDR == transportType)
-    {
-        len = strlen(addressInfo.BT.btMacAddress);
-        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
-
-        if (NULL == remoteAddress)
-        {
-            LOGE("remoteAddress Out of memory");
-            return NULL;
-        }
-
-        memcpy(remoteAddress, addressInfo.BT.btMacAddress, len + 1);
-    }
-
-    else if (CA_LE == transportType)
-    {
-        len = strlen(addressInfo.LE.leMacAddress);
-        remoteAddress = (char *) malloc(sizeof(char) * (len + 1));
-
-        if (NULL == remoteAddress)
-        {
-            LOGE("remoteAddress Out of memory");
-            return NULL;
-        }
-
-        memcpy(remoteAddress, addressInfo.LE.leMacAddress, len + 1);
-    }
-
-    return remoteAddress;
-}
-
 /* ===== TLV Handler =======*/
 
 
-/*local*/uint8_t isRawType(uint8_t type) {
-    switch (type) {
-    case TLV_COMMISSIONER_ID:
-    case TLV_COMMISSIONER_SESSION_ID:
-        return true;
-    default:
-        return false;
-    }
-}
 
-MCTLV_t* newTLV(uint8_t type, uint8_t length, MC_Value mcValue) {
-    assert(length > 0);
-
-    uint8_t isRaw = isRawType(type);
-
-    MCTLV_t *retVal = calloc(1, sizeof(MCTLV_t) + (isRaw? length + 1 : 0));
-    if (!retVal) {
-        return NULL;
-    }
-    retVal->type = type;
-    retVal->length = length;
-
-    if (isRaw) {
-        retVal->value.rawVal = (char*)retVal + sizeof(MCTLV_t);
-        if (mcValue.rawVal) {
-            memcpy(retVal->value.rawVal, mcValue.rawVal, length);
-        }
-        retVal->value.rawVal[length] = 0; // in case raw value is a string.
-    }
-    else {
-        retVal->value = mcValue;
-    }
-
-    return retVal;
-}
-
-void destroyTLV(MCTLV_t *tlv) {
-    if (!tlv) {
-        return;
-    }
-    free(tlv);
-}
-
-void determineTLVBufferLength(MCTLV_t *tlv, uint32_t *bufferStart) {
-    assert(tlv != NULL);
-    assert(bufferStart != NULL);
-    *bufferStart += (2 + tlv->length);
-}
-
-void writeTLVToBuffer(MCTLV_t *tlv, char* buffer, uint32_t *bufferStart) {
-    assert(tlv != NULL);
-    assert(buffer != NULL);
-
-    uint32_t start = bufferStart? *bufferStart : 0;
-    buffer[start++] = tlv->type;
-    buffer[start++] = tlv->length;
-
-    if (isRawType(tlv->type)) {
-        memcpy(buffer + start, tlv->value.rawVal, tlv->length);
-    }
-    else {
-        memcpy(buffer + start, &(tlv->value), tlv->length);
-    }
-
-    if (bufferStart) {
-        *bufferStart += (2 + tlv->length);
-    }
-}
-
-MCTLV_t* writeBufferToTLV(char* buffer, uint32_t *bufferStart) {
-    assert(buffer != NULL);
-
-    uint32_t start = bufferStart? *bufferStart : 0;
-    uint8_t type = buffer[start++];
-    uint8_t length = buffer[start++];
-
-    MCTLV_t *tlv = newTLV(type, length, (MC_Value){ 0 });
-    if (!tlv) {
-        return NULL;
-    }
-    uint8_t isRaw = isRawType(type);
-
-    if (isRaw) {
-        memcpy(tlv->value.rawVal, buffer + start, length);
-        tlv->value.rawVal[length] = 0; // in case raw value is a string.
-    }
-    else {
-        memcpy(&(tlv->value), buffer + start, length);
-    }
-
-    if (bufferStart) {
-        *bufferStart += (2 + length);
-    }
-
-    return tlv;
-}
-
-void logTLV(MCTLV_t *tlv) {
-    if (isRawType(tlv->type)) {
-        LOGI("TLV[type = %d; length = %d, value='%s']", tlv->type, tlv->length, tlv->value.rawVal);
-    }
-    else {
-        LOGI("TLV[type = %d; length = %d, value=%d]", tlv->type, tlv->length, (uint32_t)tlv->value.longVal);
-    }
-}
 
 void test() {
     MCTLV_t** tlvp = calloc(2, sizeof(MCTLV_t*));
@@ -2080,11 +1781,8 @@ void test() {
 
     assert(strcmp(tlvp[0]->value.rawVal, tlvp2[0]->value.rawVal) == 0);
 
-    destroyTLV(tlvp[0]);
-    destroyTLV(tlvp[1]);
-
-    destroyTLV(tlvp2[0]);
-    destroyTLV(tlvp2[1]);
+    destroyTLVReferences(tlvp, 2);
+    destroyTLVReferences(tlvp2, 2);
 
     free(tlvp);
     free(tlvp2);

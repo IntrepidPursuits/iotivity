@@ -6,7 +6,7 @@ ext.ndkDir = plugins.getPlugin('com.android.library').sdkHandler.getNdkFolder()
 
 android {
     compileSdkVersion 22
-    buildToolsVersion "23.0.0 rc1"
+    buildToolsVersion "23.0.0 rc2"
 
     defaultConfig {
         minSdkVersion 19
