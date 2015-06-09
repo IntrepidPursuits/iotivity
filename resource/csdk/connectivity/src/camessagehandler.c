@@ -40,7 +40,9 @@
 #include "canetworkconfigurator.h"
 
 #define TAG PCF("CA")
-//#define SINGLE_HANDLE
+#ifndef __ANDROID__
+#define SINGLE_HANDLE
+#endif
 
 #define MAX_THREAD_POOL_SIZE    20
 
